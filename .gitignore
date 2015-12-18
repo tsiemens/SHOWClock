@@ -1,0 +1,9 @@
+# Compiled
+port_open
+
+*.swp
+*.swo
+
+*.pyc
+
+env/
