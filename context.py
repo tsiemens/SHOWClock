@@ -2,6 +2,7 @@ import time
 import subprocess
 import atexit
 import os
+import re
 import sys
 
 from PIL import Image
@@ -34,15 +35,17 @@ class Screen(object):
    WIDTH = 320
    HEIGHT = 240
 
+   BLOCK_CHAR = '\xDA'
+
 class ScreenContext( object ):
-   def __init__(self, portName):
+   def __init__( self, portName ):
       self.portName = portName
       self.port = None
 
-      self.buffer = unicode("")
+      self.buffer = ""
 
       # Current text size
-      self.text_size = 2
+      self._textSize = 2
       self._orientation = Screen.HORIZONTAL
 
       # Current colors
@@ -86,8 +89,9 @@ class ScreenContext( object ):
       self.close()
 
    def waitForStartup( self ):
-      while self.read() != '\n':
-         pass
+      self.readLine()
+      # Needed to avoid mis-writes
+      self.sleep( 2 )
 
    def clear( self ):
       ''' Reset screen so that it is ready for drawing '''
@@ -128,19 +132,19 @@ class ScreenContext( object ):
       '''
       Returns the amount of columns, depending on the current text size
       '''
-      if self.orientation == Screen.HORIZONTAL:
-         return Screen.WIDTH / (self.text_size * 6)
+      if self.orientation() == Screen.HORIZONTAL:
+         return Screen.WIDTH / (self.textSize() * 6)
       else:
-         return Screen.HEIGHT / (self.text_size * 6)
+         return Screen.HEIGHT / (self.textSize() * 6)
 
    def get_rows(self):
       '''
       Returns the amount of rows, depending on the current text size
       '''
-      if self.orientation == Screen.HORIZONTAL:
-         return Screen.HEIGHT / (self.text_size * 8)
+      if self.orientation() == Screen.HORIZONTAL:
+         return Screen.HEIGHT / (self.textSize() * 8)
       else:
-         return Screen.WIDTH / (self.text_size * 8)
+         return Screen.WIDTH / (self.textSize() * 8)
 
    # WRITING FUNCTIONS HERE
    def fg_color(self, color):
@@ -149,8 +153,7 @@ class ScreenContext( object ):
       '''
       self.current_fg_color = color
 
-      self.buffer += "\e[%s%sm" % (str(Screen.FOREGROUND), str(color))
-      self.sleep()
+      self.write( "\e[%s%sm" % ( str(Screen.FOREGROUND), str(color) ) )
 
       return self
 
@@ -160,8 +163,7 @@ class ScreenContext( object ):
       '''
       self.current_bg_color = color
 
-      self.buffer += "\e[%s%sm" % (str(Screen.BACKGROUND), str(color))
-      self.sleep()
+      self.write( "\e[%s%sm" % ( str( Screen.BACKGROUND ), str( color ) ) )
 
       return self
 
@@ -177,10 +179,8 @@ class ScreenContext( object ):
 
       return self
 
-   def write(self, text, split=True):
-      '''
-      Prints provided text to screen
-      '''
+   def write( self, text, split=True ):
+      ''' Prints provided text to screen '''
       self.characters_on_line += len(text)
       if (self.characters_on_line >= self.get_columns()):
          self.characters_on_line = self.characters_on_line % self.get_columns()
@@ -196,11 +196,12 @@ class ScreenContext( object ):
             self.buffer += chunk
             self.sleep(len(chunk) * 0.0045)
       else:
-         self.sleep(len(chunk) * 0.0045)
+         self.buffer += text
+         self.sleep(len(text) * 0.0045)
 
       return self
 
-   def write_line(self, text):
+   def writeLine( self, text ):
       '''
       Prints provided text to screen and fills the
       rest of the line with empty space to prevent
@@ -208,7 +209,10 @@ class ScreenContext( object ):
       '''
       buffer_text = text
 
-      empty_line_count = self.get_columns() - ((len(text) + self.characters_on_line) % self.get_columns())
+      empty_line_count = self.get_columns() - \
+            ( ( len( text ) + self.characters_on_line ) % self.get_columns() )
+      if empty_line_count == self.get_columns():
+         empty_line_count = 0
 
       empty_line = ""
       for i in range(0, empty_line_count):
@@ -223,21 +227,27 @@ class ScreenContext( object ):
    def read( self, bytesToRead=1 ):
       return self.port.read( bytesToRead )
 
-   def reset_lcd(self):
-      '''
-      Reset the LCD screen
-      '''
+   def readLine( self ):
+      line = ''
+      while True:
+         ch = self.read()
+         if ch == '\n':
+            return line
+         elif ch != '\r':
+            line += ch
+      return line
+
+   def reset_lcd( self ):
+      ''' Reset the LCD screen '''
       self.buffer += "\ec"
-      self.sleep()
+      self.sleep( 0.1 )
 
       return self
 
-   def home(self):
-      '''
-      Move cursor to home, eg. 0x0
-      '''
+   def home( self ):
+      ''' Move cursor to home, eg. 0x0 '''
       self.buffer += "\e[H"
-      self.sleep(0.1)
+      self.sleep( 0.1 )
       self.characters_on_line = 0
 
       # Colors have to be set again after going home otherwise glitches occur
@@ -250,49 +260,54 @@ class ScreenContext( object ):
       Erase everything drawn on the screen
       '''
       self.buffer += "\e[2J"
-      self.sleep()
+      self.sleep( 0.05 )
 
       return self
 
-   def set_text_size(self, size):
+   def textSize( self, size=None ):
+      ''' Set or get screen text size.
+      Font width is set to 6*size and font height to 8*size
       '''
-      Set text size. Font width is set to 6*size and font height to 8*size
-      '''
-      self.buffer += "\e[%ss" % str(size)
-      self.text_size = size
-      self.sleep()
+      if size is None:
+         return self._textSize
+      else:
+         self.write( "\e[%ss" % str(size) )
+         self._textSize = size
+         return self
 
-      return self
-
-   @property
-   def orientation( self ):
-      return self._orientation
-
-   @orientation.setter
-   def orientation( self, rotation ):
-      ''' Set screen rotation.
+   def orientation( self, rotation=None ):
+      ''' Set or get screen rotation
       Accepts values between 0-3, where 1 stands for clockwise 90 degree rotation,
       2 for 180 degree rotation, etc.
       '''
-      self.buffer += "\e[%sr" % str( rotation )
-
-      if rotation % 2 == 0:
-         self._orientation = Screen.VERTICAL
+      if rotation is None:
+         return self._orientation
       else:
-         self._orientation = Screen.HORIZONTAL
+         self.buffer += "\e[%sr" % str( rotation )
 
-      self.sleep()
-      return self
+         if rotation % 2 == 0:
+            self._orientation = Screen.VERTICAL
+         else:
+            self._orientation = Screen.HORIZONTAL
 
-   def set_cursor_pos(self, x, y):
-      '''
-      Set cursor position
-      '''
-      self.buffer += "\e[%s;%sH" % (str(x), str(y))
+         self.sleep()
+         return self
 
-      self.sleep()
-
-      return self
+   def cursor( self, x=None, y=None ):
+      ''' Set or get cursor position '''
+      if x is None and y is None:
+         self.write( '\e[6n' )
+         resp = self.readLine()
+         m = re.search( 'row=(\d+)\s*,\s*col=(\d+)', resp )
+         if m:
+            return int( m.group( 1 ) ), int( m.group( 2 ) )
+         else:
+            assert 0, 'Invalid response: %s' % resp
+      else:
+         assert x is not None and y is not None
+         self.write( "\e[%s;%sH" % ( str( x ), str( y ) ) )
+         self.sleep()
+         return self
 
    def draw_image(self, img_path, x, y):
       '''
@@ -328,6 +343,5 @@ class ScreenContext( object ):
       if pushToSerial:
          self.pushToSerial()
 
-      time.sleep(period)
-
+      time.sleep( period )
       return self
