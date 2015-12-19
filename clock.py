@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
-from context import ScreenContext, Screen
 from datetime import datetime
+import re
+import subprocess
+import time
+
+from context import ScreenContext, Screen
 
 class Clock( object ):
    HOUR_SIZE = 18
@@ -61,9 +65,122 @@ class Clock( object ):
 
       self.timeDisplayed = time
 
-with ScreenContext( '/dev/ttyUSB0' ) as screen:
-   clock = Clock( screen )
-   screen.brightness( 50 )
-   while True:
-      clock.tick()
-      screen.sleep( 3 )
+class WeatherTicker( object ):
+   def __init__( self, screen, updateFreq=300 ):
+      self.screen = screen
+      self.tickerOffset = 0
+      self.temp = None
+      self.humidity = None
+      self.misc = ''
+      self.lastUpdate = 0
+      self.updateFreq = updateFreq
+
+   def updateData( self, force=False ):
+      now = time.time()
+      if not force and now - self.lastUpdate < self.updateFreq:
+         return
+      self.lastUpdate = now
+
+      # Verbose, metric
+      p = subprocess.Popen( [ 'weather', '-m', 'cyvr' ], stdout=subprocess.PIPE )
+      out, err = p.communicate()
+      allData = {}
+
+      patterns = {
+            'temp': '\s*Temperature:\s*([\d\.]+)\s+C',
+            'humidity': '\s*Relative Humidity:\s+(\d+)%',
+            'wind': '\s*Wind:.*([\d\.]+)\s*KPH',
+            'weather': '\s*Weather:\s*(.*)',
+            'sky': '\s*Sky conditions:\s*(.*)',
+         }
+      lines = out.split( '\n' )
+      for line in lines:
+         for stat, pattern in patterns.iteritems():
+            m = re.search( pattern, line )
+            if m:
+               allData[ stat ] = m.group( 1 )
+               del patterns[ stat ]
+               break
+
+      self.temp = allData.get( 'temp', None )
+      self.humidity = allData.get( 'humidity', None )
+
+      misc = []
+      if 'weather' in allData:
+         misc.append( allData[ 'weather' ] )
+      if 'sky' in allData:
+         misc.append( allData[ 'sky' ] )
+      if 'wind' in allData:
+         misc.append( 'Wind: %s KPH' % allData[ 'wind' ] )
+
+      self.misc = ' - '.join( misc )
+
+   def tickerText( self ):
+      cols = screen.get_columns()
+      raw = self.misc
+      if len( raw ) <= cols:
+         return raw
+      raw += ' - ' # padding
+      text = raw[ self.tickerOffset % len( raw ): ]
+      if len( text ) < cols:
+         text += raw
+      return text
+
+   def inc( self ):
+      ticker.tickerOffset += 1
+      ticker.tickerOffset = ticker.tickerOffset % 1000
+
+   def tempColor( self ):
+      try:
+         temp = float( self.temp )
+      except ValueError:
+         return Screen.MAGENTA
+
+      if temp <= 5:
+         return Screen.CYAN
+      elif temp > 30:
+         return Screen.RED
+      else:
+         return Screen.YELLOW
+
+   def miscColor( self ):
+      if 'rain' in self.misc.lower():
+         return Screen.CYAN
+      elif 'sun' in self.misc.lower():
+         return Screen.YELLOW
+      else:
+         return Screen.WHITE
+
+   def draw( self ):
+      screen = self.screen
+      screen.home().textSize( 3 ).write( '\n' * 8 )
+      tempText = '  %s C' % self.temp
+      tempText += ' ' * ( 7 - len( tempText ) )
+      screen.fg_color( self.tempColor() ).write( tempText )
+      screen.characters_on_line = len( tempText )
+      screen.fg_color( Screen.WHITE ).writeLine( ' %s%% hum.' % self.humidity )
+      screen.fg_color( self.miscColor() )
+      screen.writeLine( self.tickerText() )
+
+if __name__ == '__main__':
+   with ScreenContext( '/dev/ttyUSB0' ) as screen:
+      try:
+         clock = Clock( screen )
+         ticker = WeatherTicker( screen )
+         screen.brightness( 50 )
+         while True:
+            clock.tick()
+            ticker.updateData()
+            ticker.draw()
+            ticker.inc()
+            screen.sleep( 0.1 )
+
+      except Exception as e:
+         screen.bg_color( Screen.BLUE ).clear().home().textSize( 4 )
+         screen.writeLine( ' ' ).writeLine( '    ERROR' ).writeLine( ' ' )
+         screen.textSize( 2 ).writeLine( str( e ) ).writeLine( ' ' )
+         screen.writeLine( 'Please restart on ODROID' )
+         for i in xrange( 0, 40 ):
+            screen.writeLine( ' ' )
+         raw_input( 'Press enter to terminate.' )
+         raise

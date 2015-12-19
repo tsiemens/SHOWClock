@@ -153,7 +153,7 @@ class ScreenContext( object ):
       '''
       self.current_fg_color = color
 
-      self.write( "\e[%s%sm" % ( str(Screen.FOREGROUND), str(color) ) )
+      self.write( "\e[%s%sm" % ( str(Screen.FOREGROUND), str(color) ), invisible=True )
 
       return self
 
@@ -163,7 +163,7 @@ class ScreenContext( object ):
       '''
       self.current_bg_color = color
 
-      self.write( "\e[%s%sm" % ( str( Screen.BACKGROUND ), str( color ) ) )
+      self.write( "\e[%s%sm" % ( str( Screen.BACKGROUND ), str( color ) ), invisible=True )
 
       return self
 
@@ -179,9 +179,10 @@ class ScreenContext( object ):
 
       return self
 
-   def write( self, text, split=True ):
+   def write( self, text, split=True, invisible=False ):
       ''' Prints provided text to screen '''
-      self.characters_on_line += len(text)
+      if not invisible:
+         self.characters_on_line += len(text)
       if (self.characters_on_line >= self.get_columns()):
          self.characters_on_line = self.characters_on_line % self.get_columns()
 
@@ -271,7 +272,7 @@ class ScreenContext( object ):
       if size is None:
          return self._textSize
       else:
-         self.write( "\e[%ss" % str(size) )
+         self.write( "\e[%ss" % str(size), invisible=True )
          self._textSize = size
          return self
 
@@ -296,7 +297,7 @@ class ScreenContext( object ):
    def cursor( self, x=None, y=None ):
       ''' Set or get cursor position '''
       if x is None and y is None:
-         self.write( '\e[6n' )
+         self.write( '\e[6n', invisible=True )
          resp = self.readLine()
          m = re.search( 'row=(\d+)\s*,\s*col=(\d+)', resp )
          if m:
@@ -305,13 +306,13 @@ class ScreenContext( object ):
             assert 0, 'Invalid response: %s' % resp
       else:
          assert x is not None and y is not None
-         self.write( "\e[%s;%sH" % ( str( x ), str( y ) ) )
+         self.write( "\e[%s;%sH" % ( str( x ), str( y ) ), invisible=True )
          self.sleep()
          return self
 
    def brightness( self, level ):
       assert level >= 0 and level < 256
-      self.write( '\e[%dq' % level )
+      self.write( '\e[%dq' % level, invisible=True )
       return self
 
    def draw_image(self, img_path, x, y):
@@ -328,7 +329,7 @@ class ScreenContext( object ):
       width = image.size[0]
       height = image.size[1]
 
-      self.write("\e[%d;%d,%d;%di" % (x, y, width+x, height+y))
+      self.write("\e[%d;%d,%d;%di" % (x, y, width+x, height+y), invisible=True )
 
       self.sleep(0.05)
       # Call a script to cat the image data to the serial port,
