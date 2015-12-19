@@ -63,6 +63,7 @@ class Clock( object ):
 
 with ScreenContext( '/dev/ttyUSB0' ) as screen:
    clock = Clock( screen )
+   screen.brightness( 50 )
    while True:
       clock.tick()
       screen.sleep( 3 )

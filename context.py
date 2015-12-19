@@ -309,6 +309,11 @@ class ScreenContext( object ):
          self.sleep()
          return self
 
+   def brightness( self, level ):
+      assert level >= 0 and level < 256
+      self.write( '\e[%dq' % level )
+      return self
+
    def draw_image(self, img_path, x, y):
       '''
       Draw image at the specified position
