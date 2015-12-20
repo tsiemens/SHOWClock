@@ -190,9 +190,16 @@ if __name__ == '__main__':
                         help='Colors for the clock. Must be formatted as COLOR1:COLOR2.'\
                              ' eg. red:cyan' )
 
+   parser.add_argument( '--brightness', '-b', type=int, default=25,
+                        help='Backlight brighness. Must be [1,255]' )
+
    args = parser.parse_args()
 
    hrColor, minColor = parseClockColors( args.clock_colors )
+
+   if args.brightness < 1 or args.brightness > 255:
+      print 'Invalid brighness'
+      quit( 1 )
 
    with ScreenContext( '/dev/ttyUSB0' ) as screen:
       try:
@@ -201,7 +208,7 @@ if __name__ == '__main__':
          clock.minColor = minColor
 
          ticker = WeatherTicker( screen )
-         screen.brightness( 50 )
+         screen.brightness( args.brightness )
          while True:
             clock.tick()
             ticker.updateData()
