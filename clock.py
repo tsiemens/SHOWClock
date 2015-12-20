@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 from datetime import datetime
 import re
 import subprocess
@@ -162,10 +163,43 @@ class WeatherTicker( object ):
       screen.fg_color( self.miscColor() )
       screen.writeLine( self.tickerText() )
 
+def parseClockColors( colorString ):
+   m = re.search( '([a-z]+):([a-z]+)', colorString, flags=re.IGNORECASE )
+   if not m:
+      print 'Invalid color pattern'
+      quit( 1 )
+   hour = m.group( 1 ).lower()
+   minute = m.group( 2 ).lower()
+
+   colors = {
+         'red': Screen.RED,
+         'blue': Screen.BLUE,
+         'green': Screen.GREEN,
+         'yellow': Screen.YELLOW,
+         'magenta': Screen.MAGENTA,
+         'cyan': Screen.CYAN,
+         'black': Screen.BLACK,
+         'white': Screen.WHITE,
+      }
+
+   return colors[ hour ], colors[ minute ]
+
 if __name__ == '__main__':
+   parser = argparse.ArgumentParser( description='A clock for the ODROID-SHOW2' )
+   parser.add_argument( '--clock-colors', '--cc', '-c', type=str, default='red:white',
+                        help='Colors for the clock. Must be formatted as COLOR1:COLOR2.'\
+                             ' eg. red:cyan' )
+
+   args = parser.parse_args()
+
+   hrColor, minColor = parseClockColors( args.clock_colors )
+
    with ScreenContext( '/dev/ttyUSB0' ) as screen:
       try:
          clock = Clock( screen )
+         clock.hourColor = hrColor
+         clock.minColor = minColor
+
          ticker = WeatherTicker( screen )
          screen.brightness( 50 )
          while True:
