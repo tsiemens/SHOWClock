@@ -39,7 +39,7 @@ class Clock( object ):
    def tick( self ):
       time = self.getTime()
       if time != self.timeDisplayed:
-         self.screen.clear()
+         #self.screen.clear()
          self.draw( time )
          return True
       else:
@@ -54,14 +54,20 @@ class Clock( object ):
       hour1 = '1' if _12hr >= 10 else ' '
       hour2 = _12hr % 10
 
+      def f2cursor( x, y ):
+         self.screen.textSize( 2 ).home().write( ' ' * x +  '\n' * y )
+
       screen = self.screen
-      screen.cursor( 0, 33 ).textSize( self.HOUR_SIZE ).fg_color( self.hourColor )
+      f2cursor( 0, 1 )
+      screen.textSize( self.HOUR_SIZE ).fg_color( self.hourColor )
       screen.write( '%s%d' % ( hour1, hour2 ) )
 
-      screen.cursor( 217, 33 ).textSize( self.MINUTE_SIZE ).fg_color( self.minColor )
+      f2cursor( 18, 1 )
+      screen.textSize( self.MINUTE_SIZE ).fg_color( self.minColor )
       screen.write( '%0.2d' % minutes )
 
-      screen.cursor( 217, 130 ).textSize( self.AMPM_SIZE ).fg_color( self.ampmColor )
+      f2cursor( 18, 7 )
+      screen.textSize( self.AMPM_SIZE ).fg_color( self.ampmColor )
       screen.write( 'AM' if _24hr < 12 else 'PM' )
 
       self.timeDisplayed = time
