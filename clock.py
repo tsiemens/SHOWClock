@@ -109,8 +109,8 @@ class WeatherTicker( object ):
                del patterns[ stat ]
                break
 
-      self.temp = allData.get( 'temp', None )
-      self.humidity = allData.get( 'humidity', None )
+      self.temp = allData.get( 'temp', 'N/A' )
+      self.humidity = allData.get( 'humidity', 'N/A' )
 
       misc = []
       if 'weather' in allData:
