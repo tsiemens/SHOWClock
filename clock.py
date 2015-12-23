@@ -59,15 +59,15 @@ class Clock( object ):
 
       screen = self.screen
       f2cursor( 0, 1 )
-      screen.textSize( self.HOUR_SIZE ).fg_color( self.hourColor )
+      screen.textSize( self.HOUR_SIZE ).fgColor( self.hourColor )
       screen.write( '%s%d' % ( hour1, hour2 ) )
 
       f2cursor( 18, 1 )
-      screen.textSize( self.MINUTE_SIZE ).fg_color( self.minColor )
+      screen.textSize( self.MINUTE_SIZE ).fgColor( self.minColor )
       screen.write( '%0.2d' % minutes )
 
       f2cursor( 18, 7 )
-      screen.textSize( self.AMPM_SIZE ).fg_color( self.ampmColor )
+      screen.textSize( self.AMPM_SIZE ).fgColor( self.ampmColor )
       screen.write( 'AM' if _24hr < 12 else 'PM' )
 
       self.timeDisplayed = time
@@ -123,7 +123,7 @@ class WeatherTicker( object ):
       self.misc = ' - '.join( misc )
 
    def tickerText( self ):
-      cols = screen.get_columns()
+      cols = screen.columns
       raw = self.misc
       if len( raw ) <= cols:
          return raw
@@ -163,10 +163,10 @@ class WeatherTicker( object ):
       screen.home().textSize( 3 ).write( '\n' * 8 )
       tempText = '  %s C' % self.temp
       tempText += ' ' * ( 7 - len( tempText ) )
-      screen.fg_color( self.tempColor() ).write( tempText )
-      screen.characters_on_line = len( tempText )
-      screen.fg_color( Screen.WHITE ).writeLine( ' %s%% hum.' % self.humidity )
-      screen.fg_color( self.miscColor() )
+      screen.fgColor( self.tempColor() ).write( tempText )
+      screen.charsOnLine = len( tempText )
+      screen.fgColor( Screen.WHITE ).writeLine( ' %s%% hum.' % self.humidity )
+      screen.fgColor( self.miscColor() )
       screen.writeLine( self.tickerText() )
 
 def parseClockColors( colorString ):
@@ -223,7 +223,7 @@ if __name__ == '__main__':
             screen.sleep( 0.1 )
 
       except Exception as e:
-         screen.bg_color( Screen.BLUE ).clear().home().textSize( 4 )
+         screen.bgColor( Screen.BLUE ).clear().home().textSize( 4 )
          screen.writeLine( ' ' ).writeLine( '    ERROR' ).writeLine( ' ' )
          screen.textSize( 2 ).writeLine( str( e ) ).writeLine( ' ' )
          screen.writeLine( 'Please restart on ODROID' )

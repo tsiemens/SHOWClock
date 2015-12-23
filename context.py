@@ -7,7 +7,7 @@ import sys
 
 from PIL import Image
 
-def split_string_into_chunks(string, length=25):
+def splitStringIntoChunks(string, length=25):
     """
     Split string into chunks of defined size
     """
@@ -49,10 +49,10 @@ class ScreenContext( object ):
       self._orientation = Screen.HORIZONTAL
 
       # Current colors
-      self.current_fg_color = Screen.WHITE
-      self.current_bg_color = Screen.BLACK
+      self.currentFgColor = Screen.WHITE
+      self.currentBgColor = Screen.BLACK
 
-      self.characters_on_line = 0
+      self.charsOnLine = 0
 
    def open( self ):
       '''
@@ -95,11 +95,11 @@ class ScreenContext( object ):
 
    def clear( self ):
       ''' Reset screen so that it is ready for drawing '''
-      self.reset_lcd().erase_screen().home()
+      self.resetLcd().eraseScreen().home()
 
       return self
 
-   def erase_rows(self, start=0, rows=10):
+   def eraseRows(self, start=0, rows=10):
       '''
       Erase specified amount of rows starting from a specified row
       '''
@@ -109,7 +109,7 @@ class ScreenContext( object ):
          self.linebreak()
 
       for i in range(0, rows):
-         columns = self.get_columns()
+         columns = self.columns
          empty_line = ""
          for j in range(0, columns):
             empty_line += " "
@@ -128,7 +128,8 @@ class ScreenContext( object ):
 
       return self
 
-   def get_columns(self):
+   @property
+   def columns( self ):
       '''
       Returns the amount of columns, depending on the current text size
       '''
@@ -137,43 +138,44 @@ class ScreenContext( object ):
       else:
          return Screen.HEIGHT / (self.textSize() * 6)
 
-   def get_rows(self):
+   @property
+   def rows( self ):
       '''
       Returns the amount of rows, depending on the current text size
       '''
       if self.orientation() == Screen.HORIZONTAL:
-         return Screen.HEIGHT / (self.textSize() * 8)
+         return Screen.HEIGHT / ( self.textSize() * 8 )
       else:
-         return Screen.WIDTH / (self.textSize() * 8)
+         return Screen.WIDTH / ( self.textSize() * 8 )
 
    # WRITING FUNCTIONS HERE
-   def fg_color(self, color):
+   def fgColor( self, color ):
       '''
       Set foreground/text color to one of seven colors defined in Screen, eg. Screen.CYAN
       '''
-      self.current_fg_color = color
+      self.currentFgColor = color
 
       self.write( "\e[%s%sm" % ( str(Screen.FOREGROUND), str(color) ), invisible=True )
 
       return self
 
-   def bg_color(self, color):
+   def bgColor( self, color ):
       '''
       Set background color to one of seven colors defined in Screen, eg. Screen.CYAN
       '''
-      self.current_bg_color = color
+      self.currentBgColor = color
 
       self.write( "\e[%s%sm" % ( str( Screen.BACKGROUND ), str( color ) ), invisible=True )
 
       return self
 
-   def linebreak(self):
+   def linebreak( self ):
       '''
       Moves cursor to the beginning of the next line
       '''
       self.buffer += r'\n\r'
 
-      self.characters_on_line = 0
+      self.charsOnLine = 0
 
       self.sleep()
 
@@ -182,16 +184,16 @@ class ScreenContext( object ):
    def write( self, text, split=True, invisible=False ):
       ''' Prints provided text to screen '''
       if not invisible:
-         self.characters_on_line += len(text)
-      if (self.characters_on_line >= self.get_columns()):
-         self.characters_on_line = self.characters_on_line % self.get_columns()
+         self.charsOnLine += len(text)
+      if self.charsOnLine >= self.columns:
+         self.charsOnLine = self.charsOnLine % self.columns
 
       # If the text is longer than 25 characters or so
       # sending it all at once will cause artifacts as
       # the serial port can't keep up
       # Split the string into chunks to prevent this
       if split:
-         text_chunks = split_string_into_chunks(text, 25)
+         text_chunks = splitStringIntoChunks(text, 25)
 
          for chunk in text_chunks:
             self.buffer += chunk
@@ -210,9 +212,9 @@ class ScreenContext( object ):
       '''
       buffer_text = text
 
-      empty_line_count = self.get_columns() - \
-            ( ( len( text ) + self.characters_on_line ) % self.get_columns() )
-      if empty_line_count == self.get_columns():
+      empty_line_count = self.columns - \
+            ( ( len( text ) + self.charsOnLine ) % self.columns )
+      if empty_line_count == self.columns:
          empty_line_count = 0
 
       empty_line = ""
@@ -238,7 +240,7 @@ class ScreenContext( object ):
             line += ch
       return line
 
-   def reset_lcd( self ):
+   def resetLcd( self ):
       ''' Reset the LCD screen '''
       self.buffer += "\ec"
       self.sleep( 0.1 )
@@ -249,14 +251,14 @@ class ScreenContext( object ):
       ''' Move cursor to home, eg. 0x0 '''
       self.buffer += "\e[H"
       self.sleep( 0.1 )
-      self.characters_on_line = 0
+      self.charsOnLine = 0
 
       # Colors have to be set again after going home otherwise glitches occur
-      self.bg_color(self.current_bg_color).fg_color(self.current_fg_color)
+      self.bgColor( self.currentBgColor ).fgColor( self.currentFgColor )
 
       return self
 
-   def erase_screen(self):
+   def eraseScreen(self):
       '''
       Erase everything drawn on the screen
       '''
@@ -315,7 +317,7 @@ class ScreenContext( object ):
       self.write( '\e[%dq' % level, invisible=True )
       return self
 
-   def draw_image(self, img_path, x, y):
+   def drawImage(self, img_path, x, y):
       '''
       Draw image at the specified position
       THIS METHOD ISN'T RELIABLE
