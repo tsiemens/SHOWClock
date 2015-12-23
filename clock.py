@@ -57,7 +57,7 @@ class Clock( object ):
       def f2cursor( x, y ):
          self.screen.textSize( 2 ).home().write( ' ' * x +  '\n' * y )
 
-      screen = self.screen
+      screen = self.screen.beginFrame()
       f2cursor( 0, 1 )
       screen.textSize( self.HOUR_SIZE ).fgColor( self.hourColor )
       screen.write( '%s%d' % ( hour1, hour2 ) )
@@ -69,6 +69,7 @@ class Clock( object ):
       f2cursor( 18, 7 )
       screen.textSize( self.AMPM_SIZE ).fgColor( self.ampmColor )
       screen.write( 'AM' if _24hr < 12 else 'PM' )
+      screen.endFrame()
 
       self.timeDisplayed = time
 
@@ -159,7 +160,7 @@ class WeatherTicker( object ):
          return Screen.WHITE
 
    def draw( self ):
-      screen = self.screen
+      screen = self.screen.beginFrame()
       screen.home().textSize( 3 ).write( '\n' * 8 )
       tempText = '  %s C' % self.temp
       tempText += ' ' * ( 7 - len( tempText ) )
@@ -168,6 +169,7 @@ class WeatherTicker( object ):
       screen.fgColor( Screen.WHITE ).writeLine( ' %s%% hum.' % self.humidity )
       screen.fgColor( self.miscColor() )
       screen.writeLine( self.tickerText() )
+      screen.endFrame()
 
 def parseClockColors( colorString ):
    m = re.search( '([a-z]+):([a-z]+)', colorString, flags=re.IGNORECASE )

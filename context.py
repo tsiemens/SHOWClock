@@ -7,14 +7,37 @@ import sys
 
 from PIL import Image
 
-def splitStringIntoChunks(string, length=25):
-    """
-    Split string into chunks of defined size
-    """
-    if len(string) <= length:
-        return [ string ]
-    else:
-        return (string[0+i:length+i] for i in range(0, len(string), length))
+def splitStringIntoChunks( string, length=25 ):
+   """
+   Split string into chunks of defined size
+   """
+   if len(string) <= length:
+      return [ string ]
+   else:
+      return [ string[ 0+i : length+i ] \
+               for i in range( 0, len( string ), length ) ]
+
+def splitEscapeStringIntoChunks( string, length=25 ):
+
+   bigSafeChunks = string.split( '\e' )
+   for i in xrange( 1, len( bigSafeChunks ) ):
+      bigSafeChunks[ i ] = '\e' + bigSafeChunks[ i ]
+
+   safechunks = []
+   for ch in bigSafeChunks:
+      safechunks.extend( splitStringIntoChunks( ch, length=length ) )
+
+   largeChunks = []
+   currChunk = ''
+   for ch in safechunks:
+      assert len( ch ) <= length
+      if len( currChunk ) + len( ch ) <= length:
+         currChunk += ch
+      else:
+         largeChunks.append( currChunk )
+         currChunk = ch
+   largeChunks.append( currChunk )
+   return largeChunks
 
 class Screen(object):
    FOREGROUND = 3
@@ -53,6 +76,8 @@ class ScreenContext( object ):
       self.currentBgColor = Screen.BLACK
 
       self.charsOnLine = 0
+      self.frameMode = False
+      self.frameBuffer = ''
 
    def open( self ):
       '''
@@ -188,12 +213,16 @@ class ScreenContext( object ):
       if self.charsOnLine >= self.columns:
          self.charsOnLine = self.charsOnLine % self.columns
 
+      if self.frameMode:
+         self.frameBuffer += text
+         return self
+
       # If the text is longer than 25 characters or so
       # sending it all at once will cause artifacts as
       # the serial port can't keep up
       # Split the string into chunks to prevent this
       if split:
-         text_chunks = splitStringIntoChunks(text, 25)
+         text_chunks = splitEscapeStringIntoChunks(text, 25)
 
          for chunk in text_chunks:
             self.buffer += chunk
@@ -249,8 +278,8 @@ class ScreenContext( object ):
 
    def home( self ):
       ''' Move cursor to home, eg. 0x0 '''
-      self.buffer += "\e[H"
-      self.sleep( 0.1 )
+      self.write( "\e[H" )
+      #self.sleep( 0.1 )
       self.charsOnLine = 0
 
       # Colors have to be set again after going home otherwise glitches occur
@@ -352,4 +381,19 @@ class ScreenContext( object ):
          self.pushToSerial()
 
       time.sleep( period )
+      return self
+
+   def beginFrame( self ):
+      ''' Marks the beginning of a frame.
+      All writes that occur before the next call of endFrame will be accumulated
+      and written at the end, to avoid the many smaller writes. '''
+      self.frameMode = True
+      return self
+
+   def endFrame( self ):
+      ''' Writes the frame buffer to screen,
+      which is split by write into the largest chunks possible, to avoid slowdown '''
+      self.frameMode = False
+      self.write( self.frameBuffer, invisible=True )
+      self.frameBuffer = ''
       return self
