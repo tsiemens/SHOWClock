@@ -74,8 +74,9 @@ class Clock( object ):
       self.timeDisplayed = time
 
 class WeatherTicker( object ):
-   def __init__( self, screen, updateFreq=300 ):
+   def __init__( self, screen, station, updateFreq=300 ):
       self.screen = screen
+      self.station = station
       self.tickerOffset = 0
       self.temp = None
       self.humidity = None
@@ -90,7 +91,7 @@ class WeatherTicker( object ):
       self.lastUpdate = now
 
       # Verbose, metric
-      p = subprocess.Popen( [ 'weather', '-m', 'cyvr' ], stdout=subprocess.PIPE )
+      p = subprocess.Popen( [ 'weather', '-m', self.station ], stdout=subprocess.PIPE )
       out, err = p.communicate()
       allData = {}
 
@@ -197,9 +198,10 @@ if __name__ == '__main__':
    parser.add_argument( '--clock-colors', '--cc', '-c', type=str, default='red:white',
                         help='Colors for the clock. Must be formatted as COLOR1:COLOR2.'\
                              ' eg. red:cyan' )
-
    parser.add_argument( '--brightness', '-b', type=int, default=25,
                         help='Backlight brighness. Must be [1,255]' )
+   parser.add_argument( '--weather-station', '-w', type=str, default='cyvr',
+                        help='The weather-util station code to use. Defaults to cyvr.' )
 
    args = parser.parse_args()
 
@@ -215,7 +217,7 @@ if __name__ == '__main__':
          clock.hourColor = hrColor
          clock.minColor = minColor
 
-         ticker = WeatherTicker( screen )
+         ticker = WeatherTicker( screen, args.weather_station )
          screen.brightness( args.brightness )
          while True:
             clock.tick()
