@@ -96,7 +96,7 @@ class WeatherTicker( object ):
       allData = {}
 
       patterns = {
-            'temp': '\s*Temperature:\s*([\d\.]+)\s+C',
+            'temp': '\s*Temperature:\s*([\d\.-]+)\s+C',
             'humidity': '\s*Relative Humidity:\s+(\d+)%',
             'wind': '\s*Wind:.*at ([\d\.]+)\s*KPH',
             'weather': '\s*Weather:\s*(.*)',
