@@ -153,9 +153,10 @@ class WeatherTicker( object ):
          return Screen.YELLOW
 
    def miscColor( self ):
-      if 'rain' in self.misc.lower():
+      lmisc = self.misc.lower()
+      if 'rain' in lmisc:
          return Screen.CYAN
-      elif 'sun' in self.misc.lower():
+      elif 'sun' in lmisc or 'clear' in lmisc:
          return Screen.YELLOW
       else:
          return Screen.WHITE
