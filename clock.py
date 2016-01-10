@@ -1,53 +1,64 @@
 #!/usr/bin/env python
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import subprocess
 import time
 
 from context import ScreenContext, Screen
 
+colors = {
+   'red': Screen.RED,
+   'blue': Screen.BLUE,
+   'green': Screen.GREEN,
+   'yellow': Screen.YELLOW,
+   'magenta': Screen.MAGENTA,
+   'cyan': Screen.CYAN,
+   'black': Screen.BLACK,
+   'white': Screen.WHITE,
+}
+
 class Clock( object ):
    HOUR_SIZE = 18
    MINUTE_SIZE = 8
    AMPM_SIZE = 4
+   DATE_SIZE = 3
+
+   months = [ 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ]
+   weekdays = [ 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun' ]
 
    def __init__( self, screen ):
       self.screen = screen
       # hours, mins
-      self.timeDisplayed = ( None, None )
+      self.timeDisplayed = datetime( 1970, 1, 1 )
       self._debug = False
-      self._debugTime = ( 0, 0 )
+      self._debugTime = datetime( 2016, 1, 31, 0, 0 )
       self.hourColor = Screen.RED
       self.minColor = Screen.GREEN
       self.ampmColor = Screen.WHITE
+      self.dateColor = Screen.WHITE
+      self.showDate = True
 
    def getTime( self ):
       if self._debug:
-         hr, min_ = self._debugTime
-         hr += 1
-         hr %= 24
-         min_ += 1
-         min_ %= 60
-         self._debugTime = ( hr, min_ )
+         self._debugTime += timedelta( days=35, hours=1, minutes=1 )
          return self._debugTime
       else:
-         now = datetime.now()
-         return now.hour, now.minute
+         return datetime.now()
 
    def tick( self ):
       time = self.getTime()
-      if time != self.timeDisplayed:
-         #self.screen.clear()
+      if time.minute != self.timeDisplayed.minute or \
+         time.hour != self.timeDisplayed.hour:
          self.draw( time )
          return True
       else:
          return False
 
    def draw( self, time ):
-      _24hr, minutes = time
-      _12hr = _24hr % 12
+      _12hr = time.hour % 12
       if _12hr == 0:
          _12hr = 12
 
@@ -64,11 +75,19 @@ class Clock( object ):
 
       f2cursor( 18, 1 )
       screen.textSize( self.MINUTE_SIZE ).fgColor( self.minColor )
-      screen.write( '%0.2d' % minutes )
+      screen.write( '%0.2d' % time.minute )
 
       f2cursor( 18, 7 )
       screen.textSize( self.AMPM_SIZE ).fgColor( self.ampmColor )
-      screen.write( 'AM' if _24hr < 12 else 'PM' )
+      screen.write( 'AM' if time.hour < 12 else 'PM' )
+
+      if self.showDate:
+         f2cursor( 6, 10 )
+         screen.textSize( self.DATE_SIZE ).fgColor( self.dateColor )
+         screen.write( '%s, %s %d ' %
+                       ( self.weekdays[ time.weekday() ],
+                         self.months[ time.month - 1 ], time.day ) )
+
       screen.endFrame()
 
       self.timeDisplayed = time
@@ -181,32 +200,26 @@ def parseClockColors( colorString ):
    hour = m.group( 1 ).lower()
    minute = m.group( 2 ).lower()
 
-   colors = {
-         'red': Screen.RED,
-         'blue': Screen.BLUE,
-         'green': Screen.GREEN,
-         'yellow': Screen.YELLOW,
-         'magenta': Screen.MAGENTA,
-         'cyan': Screen.CYAN,
-         'black': Screen.BLACK,
-         'white': Screen.WHITE,
-      }
-
    return colors[ hour ], colors[ minute ]
 
 if __name__ == '__main__':
    parser = argparse.ArgumentParser( description='A clock for the ODROID-SHOW2' )
-   parser.add_argument( '--clock-colors', '--cc', '-c', type=str, default='red:white',
+   parser.add_argument( '--clock-colors', '--cc', type=str, default='red:white',
                         help='Colors for the clock. Must be formatted as COLOR1:COLOR2.'\
                              ' eg. red:cyan' )
+   parser.add_argument( '--date-color', '--dc', type=str, default='white',
+                        help='Colors for the date. eg. red' )
+   parser.add_argument( '--no-date', action='store_true', help='Do not show the date.' )
    parser.add_argument( '--brightness', '-b', type=int, default=25,
                         help='Backlight brighness. Must be [1,255]' )
    parser.add_argument( '--weather-station', '-w', type=str, default='cyvr',
                         help='The weather-util station code to use. Defaults to cyvr.' )
+   parser.add_argument( '--debug', action='store_true', help='Use debug time.' )
 
    args = parser.parse_args()
 
    hrColor, minColor = parseClockColors( args.clock_colors )
+   dateColor = colors[ args.date_color ]
 
    if args.brightness < 1 or args.brightness > 255:
       print 'Invalid brighness'
@@ -215,8 +228,11 @@ if __name__ == '__main__':
    with ScreenContext( '/dev/ttyUSB0' ) as screen:
       try:
          clock = Clock( screen )
+         clock._debug = args.debug
          clock.hourColor = hrColor
          clock.minColor = minColor
+         clock.dateColor = dateColor
+         clock.showDate = not args.no_date
 
          ticker = WeatherTicker( screen, args.weather_station )
          screen.brightness( args.brightness )
